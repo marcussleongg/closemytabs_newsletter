@@ -1,0 +1,17 @@
+{
+    "manifest_version": 3,
+    "name": "Close My Tabs Newsletter",
+    "version": "1.0.0",
+    "description": "Generate newsletters summarizing all those tabs left open",
+    "icons": {
+        "32": "images/icon32.png",
+        "48": "images/icon48.png",
+        "128": "images/icon128.png"
+    },
+    "action": {
+        "default_popup": "popup.html"
+    },
+    "permissions": [
+        "tabs"
+    ]
+}
