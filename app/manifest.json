@@ -13,5 +13,8 @@
     },
     "permissions": [
         "tabs"
+    ],
+    "host_permissions": [
+        "https://eaf3nblqhg.execute-api.us-east-2.amazonaws.com/default/produceAndSendNewsletter"
     ]
 }
