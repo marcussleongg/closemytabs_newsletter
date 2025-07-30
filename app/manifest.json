@@ -11,10 +11,24 @@
     "action": {
         "default_popup": "popup.html"
     },
+    "background": {
+        "service_worker": "service-worker.js"
+    },
     "permissions": [
-        "tabs"
+        "tabs",
+        "identity",
+        "storage"
     ],
     "host_permissions": [
         "https://eaf3nblqhg.execute-api.us-east-2.amazonaws.com/default/produceAndSendNewsletter"
-    ]
+    ],
+    "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyTI/bCpjRzJPaQHaIKsc/A9p9x/Tm9xcxQz55neYhKDS9eyOhLlzS3KRGSr3ZpjvWnWLTsHvXNvE1cyoVaAf7La+aC8pIYERUBmk0uJSF6+9wxWFvdVnFpiAJZmkrbfi7zql0h6BcuL1Kun25w3nvBmJlnnTBhP1xbtpt1ZMcRbAXvXcBpIbKEblJ/JMuuXuaUjBMPcRdeHrQsXfWPmy7fYTG40PGdBu6XZYSyD3Mg1C+xtk/2ccW+2ANfaXdqktsXcICb4Irpupp8QZC4vC0gC6LtzpSrV71yL/htNWRJIZydnaBRBa9mx6gfAsBYOtIw5vcTSlJYyKHW/f2HAFIQIDAQAB",
+    "oauth2": {
+        "client_id": "985045370473-5e8kpkrgis58ramgsv70dclfqsl1njg9.apps.googleusercontent.com",
+        "scopes": [
+            "openid",
+            "https://www.googleapis.com/auth/userinfo.email",
+            "https://www.googleapis.com/auth/userinfo.profile"
+        ]
+    }
 }

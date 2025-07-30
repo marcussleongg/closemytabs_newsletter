@@ -34,7 +34,7 @@ def generate_tab_content(title_or_url):
         if 'url' in title_or_url:
             response = client.models.generate_content(
                 model=model_id,
-                contents="Generate a summary from " + title_or_url['url'],
+                contents=f"Generate a summary from {title_or_url['url']} and only include what is found on the page. State the page url {title_or_url['url']}",
                 config=GenerateContentConfig(
                     tools=[url_context_tool],
                     response_modalities=["TEXT"],
@@ -44,15 +44,15 @@ def generate_tab_content(title_or_url):
             # For Google search titles
             response = client.models.generate_content(
                 model=model_id,
-                contents=f"Give me three day events schedule based on this search: {title_or_url.get('title', '')}. Also let me know what needs to taken care of considering weather and commute.",
+                contents=f"You are an expert at giving me vast information about topics that I am interested in. Explain in simple but detailed terms like I am a beginner at the topic, if there are any abbreviations, explain them in the context of the topic. Tell me about {title_or_url.get('title', '')}. State that I explicitly searched {title_or_url.get('title', '')}",
                 config=GenerateContentConfig(
                     tools=[google_search_tool],
                     response_modalities=["TEXT"],
                 )
             )
-        result = response.candidates[0].content.parts.text
-        print(f"Generated content length: {len(result)}")
-        return result
+        #result = response.candidates[0].content.parts
+        print(f"Generated content: {response.text}")
+        return response.text
     except Exception as e:
         print(f"Error generating content: {e}")
         return f"Error processing: {str(e)}"
@@ -75,9 +75,9 @@ def generate_newsletter(tabs_content):
                 response_modalities=["TEXT"],
             )
         )
-        result = response.candidates[0].content.parts.text
-        print(f"Newsletter generated, length: {len(result)}")
-        return result
+        #result = response.candidates[0].content.parts.text
+        print(f"Newsletter generated, length: {len(response.text)}")
+        return response.text
     except Exception as e:
         print(f"Error generating newsletter: {e}")
         return f"Error generating newsletter: {str(e)}"
