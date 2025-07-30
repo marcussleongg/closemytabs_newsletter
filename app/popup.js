@@ -14,7 +14,7 @@ chrome.tabs.query({windowId: chrome.windows.WINDOW_ID_CURRENT}, (tabs) => {
     body.appendChild(tabsList);
 });
   
-console.log('popup.js loaded');
+console.log('popup.js loaded me');
 let hasRun = false;
 
 async function getTabsUnaccessedPastDayInfo() {
