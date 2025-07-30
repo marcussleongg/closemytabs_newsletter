@@ -1,4 +1,70 @@
-chrome.tabs.query({windowId: chrome.windows.WINDOW_ID_CURRENT}, (tabs) => {
+// Function to update the UI based on login status
+function updateUI(isLoggedIn, userInfo) {
+    const loggedOutContent = document.getElementById('loggedOutContent');
+    const loggedInContent = document.getElementById('loggedInContent');
+    const userNameSpan = document.getElementById('userName');
+  
+    if (isLoggedIn) {
+      loggedOutContent.style.display = 'none';
+      loggedInContent.style.display = 'block';
+      userNameSpan.textContent = userInfo.given_name || userInfo.name || userInfo.email || 'User';
+    } else {
+      loggedOutContent.style.display = 'block';
+      loggedInContent.style.display = 'none';
+    }
+  }
+  
+  // Add event listeners when the DOM is loaded
+  document.addEventListener('DOMContentLoaded', function() {
+    const loginButton = document.getElementById('loginButton');
+    const logoutButton = document.getElementById('logoutButton');
+    const sendTabsButton = document.getElementById('sendTabsButton');
+  
+    if (loginButton) {
+      loginButton.addEventListener('click', async () => {
+        try {
+          const { userInfo } = await signInWithGoogle();
+          updateUI(true, userInfo);
+        } catch (error) {
+          // Error is already logged by signInWithGoogle, just update UI
+          updateUI(false, null);
+        }
+      });
+    }
+  
+    if (logoutButton) {
+      logoutButton.addEventListener('click', async () => {
+        await signOutGoogle();
+        updateUI(false, null);
+      });
+    }
+  
+    if (sendTabsButton) {
+        sendTabsButton.addEventListener('click', async () => {
+            try {
+                const tabsData = await getTabsUnaccessedPastDayInfo();
+                const idToken = await getAuthIdToken(); // from oauth.js
+                if (!idToken) {
+                    console.error("Not logged in or no ID token found.");
+                    // Optionally, prompt the user to log in again
+                    return;
+                }
+                await sendTabsToBackend(tabsData, idToken);
+            } catch (error) {
+                console.error("Error sending tabs to backend:", error);
+            }
+        });
+    }
+  
+    // Check initial login state when the popup opens
+    chrome.storage.local.get(['userLoggedIn', 'userInfo'], function(result) {
+      updateUI(result.userLoggedIn, result.userInfo);
+    });
+  });
+  
+  // The onMessage listener is no longer needed as the popup handles its own UI updates directly.
+
+  chrome.tabs.query({windowId: chrome.windows.WINDOW_ID_CURRENT}, (tabs) => {
     const body = document.body;
     
     const tabsHeader = document.createElement('h3');
@@ -21,25 +87,27 @@ async function getTabsUnaccessedPastDayInfo() {
     let allTabs = await chrome.tabs.query({});
 
     const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
+    const oneMinAgo = Date.now() - (1 * 60 * 1000);
     // potentially add tab.lastAccessed < certain period of time
-    const tabsUnaccessed = allTabs.filter(tab => tab.lastAccessed > oneDayAgo);
+    const tabsUnaccessed = allTabs.filter(tab => tab.lastAccessed > oneMinAgo);
     const tabsTitleUrl = tabsUnaccessed.map(tab => ({title: tab.title, url: tab.url}));
     return tabsTitleUrl;
 }
 
 async function logTabsUnaccessedPastDayInfo () {
     let tabsInfo = await getTabsUnaccessedPastDayInfo();
-    console.log('Info for tabs accessed in last 24 hours:', tabsInfo);
+    console.log('Info for tabs accessed in last minute:', tabsInfo);
 }
 
 logTabsUnaccessedPastDayInfo();
 
-async function sendTabsToBackend(tabsData) {
+async function sendTabsToBackend(tabsData, idToken) {
     try {
         const response = await fetch('https://eaf3nblqhg.execute-api.us-east-2.amazonaws.com/default/produceAndSendNewsletter', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                'Authorization': `Bearer ${idToken}`
             },
             body: JSON.stringify({
                 tabs: tabsData,
@@ -65,10 +133,10 @@ async function sendTabsToBackend(tabsData) {
     }
 }
 
-if (!hasRun) {
+/* if (!hasRun) {
     hasRun = true;
     (async () => {
         const tabsData = await getTabsUnaccessedPastDayInfo();
         sendTabsToBackend(tabsData);
     })();
-}
+} */
