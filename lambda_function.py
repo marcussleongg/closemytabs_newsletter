@@ -71,7 +71,7 @@ def generate_tab_content(title_or_url):
         if 'url' in title_or_url:
             response = client.models.generate_content(
                 model=model_id,
-                contents=f"Generate a summary from {title_or_url['url']} and only include what is found on the page. State the page url {title_or_url['url']}",
+                contents=f"If the link leads to a private page that requires login credentials or contains sensitive information and has security and privacy restrictions, completely ignore it, do not generate any response. Otherwise, generate a summary from {title_or_url['url']} and only include what is found on the page. State the page url {title_or_url['url']}",
                 config=GenerateContentConfig(
                     tools=[url_context_tool],
                     response_modalities=["TEXT"],
