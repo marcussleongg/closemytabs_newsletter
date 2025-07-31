@@ -84,13 +84,6 @@ async function signOutGoogle() {
         });
         const idToken = result.idToken;
 
-        if (idToken) {
-            // Revoking the token is best practice but not strictly required for sign-out.
-            // Google doesn't have a simple GET-based revocation endpoint for ID tokens.
-            // Clearing local data is the most important step for the extension's state.
-            console.log("ID token found, will clear local storage for sign-out.");
-        }
-
         // Clear all user-related data from storage
         await new Promise(resolve => {
             chrome.storage.local.remove(['userLoggedIn', 'userInfo', 'idToken'], resolve);

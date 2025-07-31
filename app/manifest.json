@@ -17,7 +17,7 @@
         "storage"
     ],
     "host_permissions": [
-        "https://eaf3nblqhg.execute-api.us-east-2.amazonaws.com/default/produceAndSendNewsletter"
+        "https://j0tlbosypc.execute-api.us-east-2.amazonaws.com/gateway-sqs"
     ],
     "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAyTI/bCpjRzJPaQHaIKsc/A9p9x/Tm9xcxQz55neYhKDS9eyOhLlzS3KRGSr3ZpjvWnWLTsHvXNvE1cyoVaAf7La+aC8pIYERUBmk0uJSF6+9wxWFvdVnFpiAJZmkrbfi7zql0h6BcuL1Kun25w3nvBmJlnnTBhP1xbtpt1ZMcRbAXvXcBpIbKEblJ/JMuuXuaUjBMPcRdeHrQsXfWPmy7fYTG40PGdBu6XZYSyD3Mg1C+xtk/2ccW+2ANfaXdqktsXcICb4Irpupp8QZC4vC0gC6LtzpSrV71yL/htNWRJIZydnaBRBa9mx6gfAsBYOtIw5vcTSlJYyKHW/f2HAFIQIDAQAB",
     "oauth2": {
