@@ -3,10 +3,13 @@ import os
 from dotenv import load_dotenv
 from google import genai
 from google.genai.types import Tool, GenerateContentConfig, UrlContext, GoogleSearch
+import boto3
 
 load_dotenv()
 
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
+SOURCE_EMAIL = os.getenv('SOURCE_EMAIL')
+
 client = genai.Client(api_key=GEMINI_API_KEY)
 model_id = "gemini-2.5-flash-lite"
 
@@ -16,6 +19,40 @@ url_context_tool = Tool(
 google_search_tool = Tool(
     google_search = GoogleSearch
 )
+
+ses_client = boto3.client('ses', region_name='us-east-2')
+
+def send_email_with_ses(recipient_email, newsletter_content):
+    """Sends an email using Amazon SES."""
+    if not SOURCE_EMAIL:
+        print("ERROR: SOURCE_EMAIL not configured in environment variables.")
+        return False
+        
+    try:
+        response = ses_client.send_email(
+            Destination={'ToAddresses': [recipient_email]},
+            Message={
+                'Body': {
+                    'Text': {
+                        'Charset': 'UTF-8',
+                        'Data': newsletter_content
+                    }
+                },
+                'Subject': {
+                    'Charset': 'UTF-8',
+                    'Data': 'Your "Close My Tabs" Newsletter'
+                },
+            },
+            Source=SOURCE_EMAIL
+        )
+        print(f"Email sent to {recipient_email}. MessageId: {response['MessageId']}")
+        return True
+    except ses_client.exceptions.MessageRejected:
+         print(f"Email to {recipient_email} was rejected. The recipient address may not be verified in SES Sandbox mode.")
+         return False
+    except Exception as e:
+        print(f"Error sending email via SES: {e}")
+        return False
 
 # keep title if it is a google search, keep url if not (we presume it is a website)
 def break_down_tab(tab):
@@ -85,6 +122,8 @@ def generate_newsletter(tabs_content):
 
 def lambda_handler(event, context):
     print(f"Lambda started with method: {event['requestContext']['http']['method']}")
+    # Log the authorizer claims to help with debugging
+    print(f"Authorizer context: {event.get('requestContext', {}).get('authorizer')}")
     print(f"Event body: {event.get('body', 'No body')}")
     
     method = event['requestContext']['http']['method']
@@ -93,13 +132,31 @@ def lambda_handler(event, context):
         try:
             print("Processing POST request...")
             
-            # Check if GEMINI_API_KEY is set
+            # Check if API keys are set
+            error_msg = ""
             if not GEMINI_API_KEY:
-                print("ERROR: GEMINI_API_KEY not found in environment variables")
+                error_msg += "GEMINI_API_KEY not found. "
+            if not SOURCE_EMAIL:
+                error_msg += "SOURCE_EMAIL not found. "
+            
+            if error_msg:
+                print(f"ERROR: {error_msg.strip()}")
                 return {
                     'statusCode': 500,
                     'headers': {'Content-Type': 'application/json'},
-                    'body': json.dumps({'error': 'GEMINI_API_KEY not configured', 'success': False})
+                    'body': json.dumps({'error': f'{error_msg.strip()} not configured in environment variables', 'success': False})
+                }
+
+            # Get user's email from the JWT claims passed by the API Gateway authorizer
+            try:
+                user_email = event['requestContext']['authorizer']['jwt']['claims']['email']
+                print(f"User email from token: {user_email}")
+            except KeyError:
+                print("ERROR: Could not find user's email in the request context.")
+                return {
+                    'statusCode': 401,
+                    'headers': {'Content-Type': 'application/json'},
+                    'body': json.dumps({'error': 'Unauthorized: User email not found in token claims.', 'success': False})
                 }
             
             # get tabs info and break it down such that it is useable
@@ -125,7 +182,14 @@ def lambda_handler(event, context):
 
             newsletter = generate_newsletter(tabs_content)
             print("Newsletter generation completed")
-            # send the email newsletter to the user
+            
+            # Send the email newsletter to the user
+            email_sent = send_email_with_ses(user_email, newsletter)
+
+            if email_sent:
+                message = "Newsletter successfully generated and sent to your email."
+            else:
+                message = "Newsletter generated, but failed to send the email."
 
             return {
                 'statusCode': 200,
@@ -133,8 +197,8 @@ def lambda_handler(event, context):
                     'Content-Type': 'application/json'
                 },
                 'body': json.dumps({
-                    'message': f"newsletter: {newsletter}",
-                    'success': True
+                    'message': message,
+                    'success': email_sent
                 })
             }
         except Exception as e:

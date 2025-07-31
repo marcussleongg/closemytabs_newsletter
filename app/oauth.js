@@ -1,7 +1,6 @@
 // Function to handle Google Sign-In and retrieve ID Token
 async function signInWithGoogle() {
     try {
-        console.log("Starting signInWithGoogle...");
         const manifest = chrome.runtime.getManifest();
         const clientId = manifest.oauth2.client_id;
         const scopes = manifest.oauth2.scopes.join(' ');
