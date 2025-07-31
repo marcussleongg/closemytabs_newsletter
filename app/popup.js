@@ -46,7 +46,6 @@ function updateUI(isLoggedIn, userInfo) {
                 const idToken = await getAuthIdToken(); // from oauth.js
                 if (!idToken) {
                     console.error("Not logged in or no ID token found.");
-                    // Optionally, prompt the user to log in again
                     const body = document.body;
                     body.appendChild(document.createElement('h3')).textContent = "Please retry logging in (especially if on incognito window)!";
                     return;
@@ -64,8 +63,6 @@ function updateUI(isLoggedIn, userInfo) {
       updateUI(result.userLoggedIn, result.userInfo);
     });
   });
-  
-  // The onMessage listener is no longer needed as the popup handles its own UI updates directly.
 
   chrome.tabs.query({windowId: chrome.windows.WINDOW_ID_CURRENT}, (tabs) => {
     const body = document.body;
@@ -91,16 +88,18 @@ console.log(getCurrentWindowTabs());
 
 async function sendTabsToBackend(tabsData, idToken) {
     try {
-        const response = await fetch('https://eaf3nblqhg.execute-api.us-east-2.amazonaws.com/default/produceAndSendNewsletter', {
+        const payload = {
+            tabs: tabsData,
+            timestamp: Date.now()
+        };
+
+        const response = await fetch('https://5cr4muf9c9.execute-api.us-east-2.amazonaws.com/process-tabs', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${idToken}`
             },
-            body: JSON.stringify({
-                tabs: tabsData,
-                timestamp: Date.now()
-            })
+            body: JSON.stringify(payload)
         });
         
         // Check if response is JSON
@@ -110,10 +109,9 @@ async function sendTabsToBackend(tabsData, idToken) {
             console.log('Backend response:', result);
             return result;
         } else {
-            // Handle non-JSON response
             const text = await response.text();
             console.log('Backend response (text):', text);
-            return { success: true, message: text };
+            return { success: true, message: "Your tabs have been sent for processing!" };
         }
     } catch (error) {
         console.error('Error sending data to backend:', error);

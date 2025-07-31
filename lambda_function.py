@@ -121,17 +121,28 @@ def generate_newsletter(tabs_content):
             
 
 def lambda_handler(event, context):
-    print(f"Lambda started with method: {event['requestContext']['http']['method']}")
-    # Log the authorizer claims to help with debugging
-    print(f"Authorizer context: {event.get('requestContext', {}).get('authorizer')}")
-    print(f"Event body: {event.get('body', 'No body')}")
+    """
+    This function is triggered by an SQS event. It processes messages
+    containing user tabs, generates a newsletter, and sends it via SES.
+    """
+    print(f"Lambda triggered by SQS. Number of records: {len(event.get('Records', []))}")
     
-    method = event['requestContext']['http']['method']
-    
-    if method == 'POST':
+    # Process each message from the SQS event
+    for record in event.get('Records', []):
         try:
-            print("Processing POST request...")
-            
+            # The message body from the proxy Lambda
+            message_body = json.loads(record.get('body', '{}'))
+            print(f"Processing message: {message_body}")
+
+            user_email = message_body.get('user_email')
+            tabs = message_body.get('tabs', [])
+
+            if not user_email or not tabs:
+                print("ERROR: Message is missing user_email or tabs. Skipping.")
+                continue # Move to the next message
+
+            # --- Your existing core logic starts here ---
+
             # Check if API keys are set
             error_msg = ""
             if not GEMINI_API_KEY:
@@ -140,40 +151,13 @@ def lambda_handler(event, context):
                 error_msg += "SOURCE_EMAIL not found. "
             
             if error_msg:
-                print(f"ERROR: {error_msg.strip()}")
-                return {
-                    'statusCode': 500,
-                    'headers': {'Content-Type': 'application/json'},
-                    'body': json.dumps({'error': f'{error_msg.strip()} not configured in environment variables', 'success': False})
-                }
+                print(f"ERROR: {error_msg.strip()} not configured in environment variables. Aborting message processing.")
+                # We continue to the next message instead of returning, 
+                # so one misconfigured variable doesn't halt the whole batch.
+                continue
 
-            # Get user's email from the JWT claims passed by the API Gateway authorizer
-            try:
-                user_email = event['requestContext']['authorizer']['jwt']['claims']['email']
-                print(f"User email from token: {user_email}")
-            except KeyError:
-                print("ERROR: Could not find user's email in the request context.")
-                return {
-                    'statusCode': 401,
-                    'headers': {'Content-Type': 'application/json'},
-                    'body': json.dumps({'error': 'Unauthorized: User email not found in token claims.', 'success': False})
-                }
-            
-            # get tabs info and break it down such that it is useable
-            body = json.loads(event.get('body', '{}'))
-            print(f"Parsed body: {body}")
-            
-            tabs = body.get('tabs', [])
-            print(f"Number of tabs: {len(tabs)}")
-            
-            if not tabs:
-                print("No tabs provided")
-                return {
-                    'statusCode': 400,
-                    'headers': {'Content-Type': 'application/json'},
-                    'body': json.dumps({'error': 'No tabs provided', 'success': False})
-                }
-            
+            print(f"Starting newsletter generation for {user_email} with {len(tabs)} tabs.")
+
             # broken_down_tabs is an array of objects with title or url
             broken_down_tabs = list(map(break_down_tab, tabs))
             print(f"Broken down tabs: {broken_down_tabs}")
@@ -184,41 +168,18 @@ def lambda_handler(event, context):
             print("Newsletter generation completed")
             
             # Send the email newsletter to the user
-            email_sent = send_email_with_ses(user_email, newsletter)
+            send_email_with_ses(user_email, newsletter)
 
-            if email_sent:
-                message = "Newsletter successfully generated and sent to your email."
-            else:
-                message = "Newsletter generated, but failed to send the email."
+            print(f"Successfully processed message for {user_email}.")
 
-            return {
-                'statusCode': 200,
-                'headers': {
-                    'Content-Type': 'application/json'
-                },
-                'body': json.dumps({
-                    'message': message,
-                    'success': email_sent
-                })
-            }
+        except json.JSONDecodeError as e:
+            print(f"ERROR: Failed to decode JSON from SQS message body: {e}")
+            # Malformed message, continue to the next one
+            continue
         except Exception as e:
-            print(f"Lambda error: {e}")
+            print(f"CRITICAL ERROR processing a message: {e}")
             import traceback
             print(f"Traceback: {traceback.format_exc()}")
-            return {
-                'statusCode': 500,
-                'headers': {'Content-Type': 'application/json'},
-                'body': json.dumps({'error': f'Internal server error: {str(e)}', 'success': False})
-            }
-    
-    else:
-        return {
-            'statusCode': 405,
-            'headers': {
-                'Content-Type': 'application/json'
-            },
-            'body': json.dumps({
-                'error': 'Method Not Allowed',
-                'success': False
-            })
-        }
+            # Depending on configuration, this failed message might be retried or sent to a DLQ.
+            # We re-raise the exception to signal to SQS that this message failed processing.
+            raise e
