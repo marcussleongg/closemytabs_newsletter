@@ -42,14 +42,17 @@ function updateUI(isLoggedIn, userInfo) {
     if (sendTabsButton) {
         sendTabsButton.addEventListener('click', async () => {
             try {
-                const tabsData = await getTabsUnaccessedPastDayInfo();
+                const tabsData = await getCurrentWindowTabs();
                 const idToken = await getAuthIdToken(); // from oauth.js
                 if (!idToken) {
                     console.error("Not logged in or no ID token found.");
                     // Optionally, prompt the user to log in again
+                    const body = document.body;
+                    body.appendChild(document.createElement('h3')).textContent = "Please retry logging in (especially if on incognito window)!";
                     return;
                 }
-                await sendTabsToBackend(tabsData, idToken);
+                const tabsTitleUrl = tabsData.map(tab => ({title: tab.title, url: tab.url}));
+                await sendTabsToBackend(tabsTitleUrl, idToken);
             } catch (error) {
                 console.error("Error sending tabs to backend:", error);
             }
@@ -79,27 +82,12 @@ function updateUI(isLoggedIn, userInfo) {
     }
     body.appendChild(tabsList);
 });
-  
-console.log('popup.js loaded me');
-let hasRun = false;
 
-async function getTabsUnaccessedPastDayInfo() {
-    let allTabs = await chrome.tabs.query({});
-
-    const oneDayAgo = Date.now() - (24 * 60 * 60 * 1000);
-    const oneMinAgo = Date.now() - (1 * 60 * 1000);
-    // potentially add tab.lastAccessed < certain period of time
-    const tabsUnaccessed = allTabs.filter(tab => tab.lastAccessed > oneMinAgo);
-    const tabsTitleUrl = tabsUnaccessed.map(tab => ({title: tab.title, url: tab.url}));
-    return tabsTitleUrl;
+async function getCurrentWindowTabs() {
+    return await chrome.tabs.query({windowId: chrome.windows.WINDOW_ID_CURRENT});
 }
 
-async function logTabsUnaccessedPastDayInfo () {
-    let tabsInfo = await getTabsUnaccessedPastDayInfo();
-    console.log('Info for tabs accessed in last minute:', tabsInfo);
-}
-
-logTabsUnaccessedPastDayInfo();
+console.log(getCurrentWindowTabs());
 
 async function sendTabsToBackend(tabsData, idToken) {
     try {
@@ -132,11 +120,3 @@ async function sendTabsToBackend(tabsData, idToken) {
         return { success: false, error: error.message };
     }
 }
-
-/* if (!hasRun) {
-    hasRun = true;
-    (async () => {
-        const tabsData = await getTabsUnaccessedPastDayInfo();
-        sendTabsToBackend(tabsData);
-    })();
-} */
