@@ -91,16 +91,20 @@ console.log(getCurrentWindowTabs());
 
 async function sendTabsToBackend(tabsData, idToken) {
     try {
-        const response = await fetch('https://eaf3nblqhg.execute-api.us-east-2.amazonaws.com/default/produceAndSendNewsletter', {
+        // The idToken is no longer needed in the payload,
+        // as the backend gets the user's email from the authorizer context.
+        const payload = {
+            tabs: tabsData,
+            timestamp: Date.now()
+        };
+
+        const response = await fetch('https://5cr4muf9c9.execute-api.us-east-2.amazonaws.com/process-tabs', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${idToken}`
+                'Authorization': `Bearer ${idToken}` // This is still required by the authorizer
             },
-            body: JSON.stringify({
-                tabs: tabsData,
-                timestamp: Date.now()
-            })
+            body: JSON.stringify(payload)
         });
         
         // Check if response is JSON
@@ -108,15 +112,18 @@ async function sendTabsToBackend(tabsData, idToken) {
         if (contentType && contentType.includes('application/json')) {
             const result = await response.json();
             console.log('Backend response:', result);
+            // You might want to display a success message to the user here
             return result;
         } else {
-            // Handle non-JSON response
+            // Handle non-JSON response, which is common for "fire-and-forget" SQS integrations
             const text = await response.text();
             console.log('Backend response (text):', text);
-            return { success: true, message: text };
+            // You might want to display a success message to the user here
+            return { success: true, message: "Your tabs have been sent for processing!" };
         }
     } catch (error) {
         console.error('Error sending data to backend:', error);
+        // You might want to display an error message to the user here
         return { success: false, error: error.message };
     }
 }
