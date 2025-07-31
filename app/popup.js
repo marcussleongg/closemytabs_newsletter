@@ -97,8 +97,9 @@ async function sendTabsToBackend(tabsData, idToken) {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${idToken}`
+                'Authorization': `Bearer ${idToken}` // This is still required by the authorizer
             },
+            body: JSON.stringify(payload)
             body: JSON.stringify(payload)
         });
         
@@ -107,6 +108,7 @@ async function sendTabsToBackend(tabsData, idToken) {
         if (contentType && contentType.includes('application/json')) {
             const result = await response.json();
             console.log('Backend response:', result);
+            // You might want to display a success message to the user here
             return result;
         } else {
             const text = await response.text();
@@ -115,6 +117,7 @@ async function sendTabsToBackend(tabsData, idToken) {
         }
     } catch (error) {
         console.error('Error sending data to backend:', error);
+        // You might want to display an error message to the user here
         return { success: false, error: error.message };
     }
 }
