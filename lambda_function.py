@@ -3,11 +3,16 @@ import os
 from dotenv import load_dotenv
 from google import genai
 from google.genai.types import Tool, GenerateContentConfig, UrlContext, GoogleSearch
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
+import html
 
 load_dotenv()
 
 GEMINI_API_KEY = os.getenv('GEMINI_API_KEY')
 SOURCE_EMAIL = os.getenv('SOURCE_EMAIL')
+EMAIL_PASSWORD = os.getenv('EMAIL_PASSWORD')
 
 client = genai.Client(api_key=GEMINI_API_KEY)
 model_id = "gemini-2.5-flash-lite"
@@ -58,32 +63,70 @@ def generate_tab_content(title_and_url):
         print(f"Error generating content: {e}")
         return {'title': None, 'url': None, 'content': f"Error processing: {str(e)}"}
      
-# TODO: implement gmail SMTP
-# with the LLM responses, we pass them as a list to
+# with the LLM responses, we use them in a list for gmail SMTP
 def send_newsletter(tabs_content, recipient_email):
-    divider = """
+    # Check required environment variables
+    if not SOURCE_EMAIL or not EMAIL_PASSWORD:
+        error_msg = "SOURCE_EMAIL or EMAIL_PASSWORD not configured"
+        print(f"Error: {error_msg}")
+        return f"Error: {error_msg}"
     
-    """
+    divider = "<hr style='border:0; border-top:1px solid #ccc; margin:20px 0;'>"
+
     try:
         print("Generating newsletter...")
         # Convert map object to list and join content
         content_list = list(tabs_content)
         print(f"Content list length: {len(content_list)}")
         
-        # conditionally add an anchor tag with the url if it is not None
-        content_html = divider.join(
-            (f"<h2><a href='{i['url']}'>{i['title']}</a></h2>" if i['url'] else f"<h2>{i['title']}</h2>") +
-            f"<p>{i['content']}</p>"
-            for i in content_list
-        )
-
+        # Build HTML content with proper escaping to prevent HTML injection
+        html_parts = []
+        for item in content_list:
+            title = html.escape(item.get('title', 'No Title'))
+            url = item.get('url')
+            content = html.escape(item.get('content', ''))
+            
+            if url:
+                # Escape URL for href attribute
+                escaped_url = html.escape(url, quote=True)
+                html_parts.append(f"<h2><a href='{escaped_url}'>{title}</a></h2><p>{content}</p>")
+            else:
+                html_parts.append(f"<h2>{title}</h2><p>{content}</p>")
         
+        content_html = divider.join(html_parts)
 
-        return f"Newsletter sent to {recipient_email}"
+        msg = MIMEMultipart('alternative')
+        msg['From'] = f"Close My Tabs <{SOURCE_EMAIL}>"
+        msg['To'] = recipient_email
+        msg['Subject'] = 'Newsletter from your tabs'
 
+        msg.attach(MIMEText(content_html, 'html'))
+
+        # Connect to Gmail SMTP server with proper resource management
+        server = None
+        try:
+            server = smtplib.SMTP('smtp.gmail.com', 587)
+            server.starttls()  # TLS encryption
+            server.login(SOURCE_EMAIL, EMAIL_PASSWORD)
+            server.sendmail(SOURCE_EMAIL, recipient_email, msg.as_string())
+            print(f"Newsletter sent to {recipient_email}!")
+            return "Newsletter sent successfully"
+        finally:
+            if server:
+                server.quit()
+
+    except smtplib.SMTPAuthenticationError as e:
+        error_msg = f"SMTP Authentication failed. Make sure EMAIL_PASSWORD is a Gmail App Password: {e}"
+        print(error_msg)
+        return error_msg
+    except smtplib.SMTPException as e:
+        error_msg = f"SMTP error occurred: {e}"
+        print(error_msg)
+        return error_msg
     except Exception as e:
-        print(f"Error generating newsletter: {e}")
-        return f"Error generating newsletter: {str(e)}"
+        error_msg = f"Error generating newsletter: {str(e)}"
+        print(error_msg)
+        return error_msg
             
 
 def lambda_handler(event, context):
