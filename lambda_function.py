@@ -7,6 +7,7 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import html
+import markdown
 
 load_dotenv()
 
@@ -16,6 +17,15 @@ EMAIL_PASSWORD = os.getenv('EMAIL_PASSWORD')
 
 client = genai.Client(api_key=GEMINI_API_KEY)
 model_id = "gemini-2.5-flash-lite"
+
+google_search_prompt = """You are an expert at giving me vast information about topics that I am
+interested in. Explain in simple but detailed terms like I am a beginner at the topic, if there are
+any abbreviations, explain them in the context of the topic. 
+Tell me about """
+
+site_prompt = """If the link leads to a private page that requires login credentials or contains 
+sensitive information and has security and privacy restrictions, completely ignore it, do not generate
+any response. Otherwise, only include what is found on the page and generate a summary from """
 
 url_context_tool = Tool(
     url_context = UrlContext
@@ -41,7 +51,7 @@ def generate_tab_content(title_and_url):
         if title_and_url['url'] is not None:
             response = client.models.generate_content(
                 model=model_id,
-                contents=f"If the link leads to a private page that requires login credentials or contains sensitive information and has security and privacy restrictions, completely ignore it, do not generate any response. Otherwise, generate a summary from {title_and_url['url']} and only include what is found on the page. State the page url {title_and_url['url']}",
+                contents=f"{site_prompt} {title_and_url['url']}",
                 config=GenerateContentConfig(
                     tools=[url_context_tool],
                     response_modalities=["TEXT"],
@@ -51,7 +61,7 @@ def generate_tab_content(title_and_url):
             # For Google search titles
             response = client.models.generate_content(
                 model=model_id,
-                contents=f"You are an expert at giving me vast information about topics that I am interested in. Explain in simple but detailed terms like I am a beginner at the topic, if there are any abbreviations, explain them in the context of the topic. Tell me about {title_and_url.get('title', '')}. State that I explicitly searched {title_and_url.get('title', '')}",
+                contents=f"{google_search_prompt} {title_and_url.get('title', '')}",
                 config=GenerateContentConfig(
                     tools=[google_search_tool],
                     response_modalities=["TEXT"],
@@ -85,13 +95,14 @@ def send_newsletter(tabs_content, recipient_email):
             title = html.escape(item.get('title', 'No Title'))
             url = item.get('url')
             content = html.escape(item.get('content', ''))
+            content_markdown = markdown.markdown(content)
             
             if url:
                 # Escape URL for href attribute
                 escaped_url = html.escape(url, quote=True)
-                html_parts.append(f"<h2><a href='{escaped_url}'>{title}</a></h2><p>{content}</p>")
+                html_parts.append(f"<h2><a href='{escaped_url}'>{title}</a></h2><p>{content_markdown}</p>")
             else:
-                html_parts.append(f"<h2>{title}</h2><p>{content}</p>")
+                html_parts.append(f"<h2>{title}</h2><p>{content_markdown}</p>")
         
         content_html = divider.join(html_parts)
 
