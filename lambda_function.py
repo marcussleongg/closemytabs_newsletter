@@ -25,7 +25,10 @@ Tell me about """
 
 site_prompt = """If the link leads to a private page that requires login credentials or contains 
 sensitive information and has security and privacy restrictions, completely ignore it, do not generate
-any response. Otherwise, only include what is found on the page and generate a summary from """
+any response. Otherwise, you are an expert at giving me vast information about topics that I am
+interested in. Explain in simple but detailed terms like I am a beginner at the topic, if there are
+any abbreviations, explain them in the context of the topic. Only include what is found on the page
+and tell me about the topic from """
 
 url_context_tool = Tool(
     url_context = UrlContext
