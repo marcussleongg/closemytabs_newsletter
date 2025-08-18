@@ -1,3 +1,6 @@
 my-extension.pem
 .env
 lambda-layer/python/
+app/manifest.json
+*.crx
+*.zip
